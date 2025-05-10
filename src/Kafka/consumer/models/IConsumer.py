@@ -1,10 +1,17 @@
 from kafka import KafkaConsumer
 from abc import ABC, abstractmethod
 
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+KAFKA_URL = os.environ['KAFKA_URL']
+
 class IConsumer(ABC):
     def __init__(self):
         self.consumer = KafkaConsumer(
-            bootstrap_servers=['localhost:9092'], 
+            bootstrap_servers=[KAFKA_URL], 
             auto_offset_reset='earliest', 
             enable_auto_commit=False,
             value_deserializer=lambda x: x.decode('utf-8')

@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-SPORTS_RADAR_API_KEYS = env_list = json.loads(os.environ['SPORTS_RADAR_API_KEYS'])
+SPORTS_RADAR_API_KEYS = json.loads(os.environ['SPORTS_RADAR_API_KEYS'])
 
 class LiveMatchProducer(IProducer):
     def __init__(self, sport_event):

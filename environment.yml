@@ -1,4 +1,7 @@
 name: big-data-project
+channels:
+  - defaults
+  - conda-forge
 dependencies:
   - python=3.11
   - pyspark
@@ -9,3 +12,4 @@ dependencies:
   - pip:
       - kafka-python
       - confluent-kafka
+      - hdfs[avro,dataframe,kerberos]
