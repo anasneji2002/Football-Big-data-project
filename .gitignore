@@ -1,0 +1,55 @@
+# Ignore environment variable files
+.env
+.env.local
+.env.*.local
+
+# Ignore build output
+dist/
+build/
+out/
+
+# Ignore IDE specific files
+.vscode/
+.idea/
+*.swp
+
+# Ignore OS generated files
+.DS_Store
+Thumbs.db
+
+# Ignore temporary files
+*.tmp
+*.temp
+
+# Ignore Big Data project specific files
+*.parquet
+*.csv
+*.json
+*.avro
+*.orc
+*.snappy
+
+# Ignore Python-specific files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+.eggs/
+*.whl
+*.coverage
+.coverage.*
+.cache/
+.pytest_cache/
+.tox/
+.mypy_cache/
+.dmypy.json
+.pyre/
+.ipynb_checkpoints/
+
+# Ignore virtual environment folders
+venv/
+env/
+ENV/
+.venv/

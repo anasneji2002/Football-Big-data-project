@@ -1,0 +1,11 @@
+name: big-data-project
+dependencies:
+  - python=3.11
+  - pyspark
+  - numpy
+  - pandas
+  - jupyterlab
+  - pip
+  - pip:
+      - kafka-python
+      - confluent-kafka
