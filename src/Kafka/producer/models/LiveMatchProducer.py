@@ -8,13 +8,13 @@ load_dotenv()
 
 SPORTS_RADAR_API_KEYS = env_list = json.loads(os.environ['SPORTS_RADAR_API_KEYS'])
 
-class StreamDataProducer(IProducer):
+class LiveMatchProducer(IProducer):
     def __init__(self, sport_event):
         super().__init__()
         self.__sport_event = sport_event
     
     def _pub(self, val):
-        super()._pub_with_topic(val, topic= "stream")
+        super()._pub_with_topic(val, topic= "live-match")
         
     def main(self):
         idx = 0

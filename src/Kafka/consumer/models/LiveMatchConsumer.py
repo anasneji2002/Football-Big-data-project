@@ -1,12 +1,12 @@
 from .IConsumer import IConsumer
 import datetime
 
-class StreamDataConsumer(IConsumer):
+class LiveMatchConsumer(IConsumer):
     def __init__(self):
         super().__init__()
     
     def _sub(self):
-        super()._sub_with_topics(["stream"])
+        super()._sub_with_topics(["live-match"])
     
     def _on_new_message(self, message):
         print(f"timestamp:{datetime.date.today()}, message:{message}")
