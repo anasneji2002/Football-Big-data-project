@@ -24,7 +24,6 @@ Thumbs.db
 # Ignore Big Data project specific files
 *.parquet
 *.csv
-*.json
 *.avro
 *.orc
 *.snappy
