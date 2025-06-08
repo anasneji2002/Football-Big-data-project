@@ -1,12 +1,12 @@
 import requests
 
-api_key_to_use = "xxx"
+api_key_to_use = "Fo8S4qJArRr7vRdFRbeTnuVzWERgEfl16xfLuZij"
 headers = {
     'x-api-key': api_key_to_use  # Replace with your actual key
 }
 
 r = requests.get("https://api.sportradar.com/soccer-extended/trial/v4/stream/statistics/subscribe",
-    params = {'format': 'json', 'sport_event_id': "xxxx"},
+    params = {'format': 'json', 'sport_event_id': "sr:sport_event:55809543"},
     headers= headers,
     allow_redirects=False)
 
