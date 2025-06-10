@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Détails du Match</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        .stat-bar-label {
+            text-align: center;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        .progress {
+            height: 24px;
+        }
+        .team-label {
+            width: 15%;
+            text-align: center;
+            font-weight: bold;
+        }
+        .progress-wrapper {
+            width: 70%;
+        }
+        .stat-bar {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container mt-5">
+        <h2 id="match-title" class="text-center">Chargement du match...</h2>
+        <div id="match-info" class="mt-4 p-4 bg-white rounded shadow-sm"></div>
+    </div>
+
+    <script>
+        const socket = io();
+        const matchId = "{{ match_id }}";
+        const matchTitle = document.getElementById('match-title');
+        const matchInfo = document.getElementById('match-info');
+
+        socket.emit('kafka_event_request', {
+            sport_event_id: matchId
+        });
+
+        socket.on('kafka_event_response', (message) => {
+            const data = JSON.parse(message);
+            const eventId = data?.data?.metadata?.sport_event_id;
+            if (!eventId) return;
+
+            const matchIdTrimmed = matchId?.split(':')?.[2];
+            const eventIdTrimmed = eventId?.split(':')?.[2];
+            if (matchIdTrimmed !== eventIdTrimmed) return;
+
+            const status = data?.data?.payload?.sport_event_status;
+            const meta = data?.data?.metadata;
+            const competitors = data?.data?.payload?.statistics?.[0]?.competitors || [];
+
+            const home = competitors.find(c => c?.qualifier === 'home');
+            const away = competitors.find(c => c?.qualifier === 'away');
+
+            matchTitle.textContent = `${home?.name ?? 'Équipe Domicile'} vs ${away?.name ?? 'Équipe Extérieure'}`;
+
+            function statBar(label, homeVal = 0, awayVal = 0, unit = '') {
+                const total = (Number(homeVal) || 0) + (Number(awayVal) || 0);
+                const homePerc = total > 0 ? (100 * (homeVal || 0) / total).toFixed(1) : 50;
+                const awayPerc = 100 - homePerc;
+
+                return `
+                    <div class="stat-bar">
+                        <div class="stat-bar-label">${label}</div>
+                        <div class="d-flex align-items-center">
+                            <div class="team-label">${home?.abbreviation ?? 'Home'}<br><small>${homeVal ?? 0}${unit}</small></div>
+                            <div class="progress flex-grow-1 mx-2">
+                                <div class="progress-bar bg-primary" role="progressbar" style="width: ${homePerc}%;" aria-valuenow="${homePerc}" aria-valuemin="0" aria-valuemax="100"></div>
+                                <div class="progress-bar bg-danger" role="progressbar" style="width: ${awayPerc}%;" aria-valuenow="${awayPerc}" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                            <div class="team-label">${away?.abbreviation ?? 'Away'}<br><small>${awayVal ?? 0}${unit}</small></div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            matchInfo.innerHTML = `
+                <div class="text-center mb-4">
+                    <div style="font-size: 3rem; font-weight: bold;">
+                        ${status?.home_score} - ${status?.away_score}
+                    </div>
+                    <div class="text-muted mt-2" style="font-size: 1rem;">
+                        <div><strong>Status:</strong> ${status?.status} (${status?.match_status})</div>
+                        <div><strong>Dernier événement:</strong> ${meta?.event_id}</div>
+                        <div><strong>Situation:</strong> ${status?.match_situation?.status} – ${status?.match_situation?.qualifier}</div>
+                    </div>
+                </div>
+                <hr/>
+                ${statBar("Possession du Ballon", home?.statistics?.ball_possession, away?.statistics?.ball_possession, '%')}
+                ${statBar("Tirs (Total)", home?.statistics?.shots_total, away?.statistics?.shots_total)}
+                ${statBar("Tirs cadrés", home?.statistics?.shots_on_target, away?.statistics?.shots_on_target)}
+                ${statBar("Tirs non cadrés", home?.statistics?.shots_off_target, away?.statistics?.shots_off_target)}
+                ${statBar("Fautes", home?.statistics?.fouls, away?.statistics?.fouls)}
+                ${statBar("Coups francs", home?.statistics?.free_kicks, away?.statistics?.free_kicks)}
+                ${statBar("Corners", home?.statistics?.corner_kicks, away?.statistics?.corner_kicks)}
+                ${statBar("Cartons jaunes", home?.statistics?.yellow_cards, away?.statistics?.yellow_cards)}
+                ${statBar("Cartons rouges", home?.statistics?.red_cards, away?.statistics?.red_cards)}
+                ${statBar("Remplacements", home?.statistics?.substitutions, away?.statistics?.substitutions)}
+                ${statBar("Touches", home?.statistics?.throw_ins, away?.statistics?.throw_ins)}
+                ${statBar("Hors-jeu", home?.statistics?.offsides, away?.statistics?.offsides)}
+                ${statBar("Arrêts", home?.statistics?.shots_saved, away?.statistics?.shots_saved)}
+            `;
+        });
+
+        socket.on('connect_error', () => {
+            matchInfo.innerHTML = '<div class="alert alert-danger">Erreur de connexion au serveur WebSocket.</div>';
+        });
+    </script>
+</body>
+</html>

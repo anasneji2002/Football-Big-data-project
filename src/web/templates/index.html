@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Football Matches</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .match-card {
+            transition: transform 0.2s;
+            margin-bottom: 1rem;
+        }
+
+        .match-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .live-indicator {
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
+        .loader {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .error-message {
+            display: none;
+            margin: 10px 0;
+        }
+
+        .tab-content {
+            padding: 20px 0;
+        }
+
+        .stats-container {
+            font-size: 0.9rem;
+        }
+
+        .stat-item {
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-item i {
+            width: 20px;
+            text-align: center;
+            margin-right: 5px;
+        }
+
+        .card-header {
+            background-color: #f8f9fa;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+        }
+    </style>
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-futbol me-2"></i>Football Matches
+            </a>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <ul class="nav nav-tabs" id="myTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="live-tab" data-bs-toggle="tab" data-bs-target="#live" type="button"
+                    role="tab">
+                    <i class="fas fa-bolt me-2"></i>Matchs en Direct
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="historical-tab" data-bs-toggle="tab" data-bs-target="#historical"
+                    type="button" role="tab">
+                    <i class="fas fa-history me-2"></i>Historique
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content mt-3" id="myTabContent">
+            <!-- Section Matchs en Direct -->
+            <div class="tab-pane fade show active" id="live" role="tabpanel">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>Les matchs en direct seront affichés ici
+                </div>
+                <div class="loader">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+                <div class="alert alert-danger error-message" role="alert"></div>
+                <div class="row" id="live-matches"></div>
+            </div>
+
+            <!-- Section Historique -->
+            <div class="tab-pane fade" id="historical" role="tabpanel">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <select class="form-select" id="league-select">
+                            <option value="">Sélectionner une ligue</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <select class="form-select" id="year-select">
+                            <option value="">Sélectionner une année</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-primary" id="search-btn">
+                            <i class="fas fa-search me-2"></i>Rechercher
+                        </button>
+                    </div>
+                </div>
+                <div class="loader">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+                <div class="alert alert-danger error-message" role="alert"></div>
+                <div class="row" id="historical-matches"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script>
+        // Connexion WebSocket
+        const socket = io();
+        const loader = document.querySelector('.loader');
+        const errorMessage = document.querySelector('.error-message');
+
+        function showLoader() {
+            loader.style.display = 'block';
+            errorMessage.style.display = 'none';
+        }
+
+        function hideLoader() {
+            loader.style.display = 'none';
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+        }
+
+        // Charger les ligues disponibles depuis HDFS
+        async function loadLeagues() {
+            try {
+                console.log('Fetching leagues...');
+                const response = await fetch('/api/leagues');
+                const data = await response.json();
+                console.log('Received leagues:', data);
+                const leagueSelect = document.getElementById('league-select');
+
+                data.leagues.forEach(league => {
+                    const option = document.createElement('option');
+                    option.value = league;
+                    option.textContent = league.replace('-', ' ').toUpperCase();
+                    leagueSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading leagues:', error);
+                showError('Erreur lors du chargement des ligues');
+            }
+        }
+
+        // Charger les années disponibles
+        function loadYears() {
+            const select = document.getElementById('year-select');
+            const currentYear = new Date().getFullYear();
+            for (let year = 2000; year <= currentYear; year++) {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = year;
+                select.appendChild(option);
+            }
+        }
+
+        // Gestion des matchs en directe
+        document.getElementById('live-tab').addEventListener('click', async () => {
+            response = await fetch('/api/livematches');
+            console.log('Fetching live matches...');
+            showLoader();
+            try {
+                const data = await response.json();
+                console.log('Received live matches:', data);
+                hideLoader();
+                displayLiveMatches(data.summaries);
+            } catch (error) {
+                console.error('Error fetching live matches:', error);
+                hideLoader();
+                showError('Erreur lors de la récupération des matchs en direct');
+            }
+        })
+        // Gestion des matchs historiques
+        document.getElementById('search-btn').addEventListener('click', async () => {
+            const league = document.getElementById('league-select').value;
+            const year = document.getElementById('year-select').value;
+
+            console.log('Search clicked - League:', league, 'Year:', year);
+
+            if (!league || !year) {
+                showError('Veuillez sélectionner une ligue et une année');
+                return;
+            }
+
+            showLoader();
+            try {
+                // Convertir l'année en format saison (ex: 2013 -> 1314)
+                const season = year.toString().slice(-2) + (parseInt(year) + 1).toString().slice(-2);
+                console.log('Emitting request_data event with:', { league, season });
+                socket.emit('request_data', {
+                    league: league,
+                    season: season
+                });
+            } catch (error) {
+                console.error('Error in search button handler:', error);
+                showError('Erreur lors de la récupération des matchs');
+                hideLoader();
+            }
+        });
+
+        // Gestion des réponses WebSocket
+        // socket.on('data_response', (response) => {
+        //     console.log('Received data_response:', response);
+        //     hideLoader();
+
+        //     if (response.status === 'success' && response.data.length > 0) {
+        //         console.log('Displaying matches:', response.data);
+        //         displayHistoricalMatches(response.data);
+        //     } else {
+        //         console.log('No data or error in response:', response);
+        //         showError(response.message || 'Aucune donnée disponible');
+        //     }
+        // });
+
+        // Fonction pour afficher les matchs directes
+        function displayLiveMatches(matches) {
+            console.log('Displaying matches:', matches);
+            const container = document.getElementById('live-matches');
+            if (!matches || matches.length === 0) {
+                console.log('No matches to display');
+                container.innerHTML = '<div class="col-12"><div class="alert alert-info">Aucun match trouvé pour cette période</div></div>';
+                return;
+            }
+
+            try {
+                container.innerHTML = matches?.map(match => {
+                    console.log('Processing match:', match);
+                    if (match.sport_event_status.status === 'not_started')
+                        return ''; // Ignore matches that haven't started yet
+                    return `
+                    
+                    <div class="col-md-6 mb-3 live-match" id="${match?.sport_event?.id}">
+                        <a href="/match/${match?.sport_event?.id}" style="text-decoration: none; color: inherit;">
+                            <div class="card match-card">
+                                <div class="card-header bg-light">
+                                    <small class="text-muted">${match?.sport_event?.start_time || 'Date non disponible'}</small>
+                                </div>
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h5 class="card-title mb-0">${match?.sport_event?.competitors[0]?.name || 'Équipe Domicile'} vs ${match?.sport_event?.competitors[1]?.name || 'Équipe Extérieur'}</h5>
+                                        <span class="badge ${getLiveResultBadgeClass(match?.sport_event_status?.home_score, match?.sport_event_status?.away_score)}">${getLiveResultText(match?.sport_event_status?.home_score, match?.sport_event_status?.away_score)}</span>
+                                    </div>
+                                    
+                                    <div class="row text-center mb-3">
+                                        <div class="col">
+                                            <h3 class="mb-0">${match?.sport_event_status?.home_score || '0'} - ${match?.sport_event_status?.away_score || '0'}</h3>
+                                            <small class="text-muted">Score</small>
+                                        </div>
+                                        <div class="col">
+                                            <h5 class="mb-0">${match?.sport_event_status?.period_scores[0]?.home_score || '0'} - ${match?.sport_event_status?.period_scores[0]?.away_score || '0'}</h5>
+                                            <small class="text-muted">Mi-temps</small>
+                                        </div>
+                                    </div>
+
+                                    
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                   
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('Error displaying matches:', error);
+                showError('Erreur lors de l\'affichage des matchs');
+            }
+        }
+
+
+        // Fonction pour afficher les matchs historiques
+        function displayHistoricalMatches(matches) {
+            console.log('Displaying matches:', matches);
+            const container = document.getElementById('historical-matches');
+            if (!matches || matches.length === 0) {
+                console.log('No matches to display');
+                container.innerHTML = '<div class="col-12"><div class="alert alert-info">Aucun match trouvé pour cette période</div></div>';
+                return;
+            }
+
+            try {
+                container.innerHTML = matches.map(match => {
+                    console.log('Processing match:', match);
+                    return `
+                        <div class="col-md-6 mb-3">
+                            <div class="card match-card">
+                                <div class="card-header bg-light">
+                                    <small class="text-muted">${match.Date || 'Date non disponible'}</small>
+                                </div>
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h5 class="card-title mb-0">${match.HomeTeam || 'Équipe Domicile'} vs ${match.AwayTeam || 'Équipe Extérieur'}</h5>
+                                        <span class="badge ${getResultBadgeClass(match.FTR)}">${getResultText(match.FTR)}</span>
+                                    </div>
+                                    
+                                    <div class="row text-center mb-3">
+                                        <div class="col">
+                                            <h3 class="mb-0">${match.FTHG || '0'} - ${match.FTAG || '0'}</h3>
+                                            <small class="text-muted">Score Final</small>
+                                        </div>
+                                        <div class="col">
+                                            <h5 class="mb-0">${match.HTHG || '0'} - ${match.HTAG || '0'}</h5>
+                                            <small class="text-muted">Mi-temps</small>
+                                        </div>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <div class="stats-container">
+                                                <div class="stat-item">
+                                                    <i class="fas fa-futbol"></i> Tirs: ${match.HS || '0'}
+                                                </div>
+                                                <div class="stat-item">
+                                                    <i class="fas fa-bullseye"></i> Tirs cadrés: ${match.HST || '0'}
+                                                </div>
+                                                <div class="stat-item">
+                                                    <i class="fas fa-flag"></i> Corners: ${match.HC || '0'}
+                                                </div>
+                                                <div class="stat-item">
+                                                    <i class="fas fa-exclamation-triangle"></i> Fautes: ${match.HF || '0'}
+                                                </div>
+                                                <div class="stat-item">
+                                                    <i class="fas fa-square text-warning"></i> ${match.HY || '0'}
+                                                    <i class="fas fa-square text-danger"></i> ${match.HR || '0'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="stats-container">
+                                                <div class="stat-item">
+                                                    <i class="fas fa-futbol"></i> Tirs: ${match.AS || '0'}
+                                                </div>
+                                                <div class="stat-item">
+                                                    <i class="fas fa-bullseye"></i> Tirs cadrés: ${match.AST || '0'}
+                                                </div>
+                                                <div class="stat-item">
+                                                    <i class="fas fa-flag"></i> Corners: ${match.AC || '0'}
+                                                </div>
+                                                <div class="stat-item">
+                                                    <i class="fas fa-exclamation-triangle"></i> Fautes: ${match.AF || '0'}
+                                                </div>
+                                                <div class="stat-item">
+                                                    <i class="fas fa-square text-warning"></i> ${match.AY || '0'}
+                                                    <i class="fas fa-square text-danger"></i> ${match.AR || '0'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('Error displaying matches:', error);
+                showError('Erreur lors de l\'affichage des matchs');
+            }
+        }
+
+        function getLiveResultBadgeClass(home, away) {
+            if (home > away) return 'bg-success';
+            if (home < away) return 'bg-danger';
+            return 'bg-warning';
+        }
+        function getResultBadgeClass(result) {
+            switch (result) {
+                case 'H': return 'bg-success';
+                case 'A': return 'bg-danger';
+                case 'D': return 'bg-warning';
+                default: return 'bg-secondary';
+            }
+        }
+
+        function getLiveResultText(home, away) {
+            if (home > away) return 'Victoire Domicile';
+            if (home < away) return 'Victoire Extérieur';
+            return 'Match Nul';
+        }
+        function getResultText(result) {
+            switch (result) {
+                case 'H': return 'Victoire Domicile';
+                case 'A': return 'Victoire Extérieur';
+                case 'D': return 'Match Nul';
+                default: return 'Inconnu';
+            }
+        }
+
+        // Gestion des erreurs WebSocket
+        socket.on('connect_error', (error) => {
+            console.error('WebSocket connection error:', error);
+            showError('Erreur de connexion au serveur');
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Disconnected from WebSocket');
+            showError('Connexion perdue. Veuillez rafraîchir la page.');
+        });
+
+        // Initialisation
+        loadLeagues();
+        loadYears();
+    </script>
+</body>
+
+</html>

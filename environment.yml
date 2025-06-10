@@ -13,3 +13,7 @@ dependencies:
       - kafka-python
       - confluent-kafka
       - hdfs[avro,dataframe,kerberos]
+      - flask
+      - flask-socketio
+      - python-socketio
+      - python-engineio
